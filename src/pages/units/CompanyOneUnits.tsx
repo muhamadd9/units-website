@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { companyOneUnitsAPI, bookingsAPI } from "@/lib/api";
 import { Dropdown } from "primereact/dropdown";
 import PaginationClassic from "@/components/PaginationClassic";
@@ -20,14 +20,26 @@ import {
 
 interface CompanyOneUnit {
     _id: string;
-    unit: string;
-    building: string;
-    area: number;
-    bedrooms: number;
-    price: number;
+    company: "Sakaya" | "Upvida";
     view: string;
     orientation: string;
     status: string;
+    // Sakaya fields
+    unit?: string;
+    building?: string;
+    area?: number;
+    bedrooms?: number;
+    price?: number;
+    // Upvida fields
+    totalPrice?: number;
+    totalArea?: number;
+    balcony?: number;
+    netArea?: number;
+    modelName?: string;
+    floorNumber?: string;
+    unitNumber?: string;
+    buildingNumber?: string;
+    towerNumber?: string;
 }
 
 const CompanyOneUnits = () => {
@@ -38,6 +50,7 @@ const CompanyOneUnits = () => {
     const [totalItems, setTotalItems] = useState(0);
     const itemsPerPage = 12;
 
+    const [company, setCompany] = useState<string>("all");
     const [building, setBuilding] = useState<string>("all");
     const [status, setStatus] = useState<string>("all");
     const [bedrooms, setBedrooms] = useState<string | number>("all");
@@ -53,6 +66,7 @@ const CompanyOneUnits = () => {
         status: "booked" as "available" | "booked" | "sold" | "mokp" | "hold",
     });
 
+    const [companyOptions, setCompanyOptions] = useState<{ label: string; value: string }[]>([{ label: "All Companies", value: "all" }]);
     const [buildingOptions, setBuildingOptions] = useState<{ label: string; value: string }[]>([{ label: "All Buildings", value: "all" }]);
     const [statusOptions, setStatusOptions] = useState<{ label: string; value: string }[]>([{ label: "All Statuses", value: "all" }]);
     const [bedroomsOptions, setBedroomsOptions] = useState<{ label: string; value: number | string }[]>([{ label: "Any Bedrooms", value: "all" }]);
@@ -61,6 +75,7 @@ const CompanyOneUnits = () => {
         setLoading(true);
         try {
             const params: Record<string, any> = { page: currentPage, limit: itemsPerPage };
+            if (company !== "all") params.company = company;
             if (building !== "all") params.building = building;
             if (status !== "all") params.status = status;
             if (bedrooms !== "all") params.bedrooms = bedrooms;
@@ -76,7 +91,7 @@ const CompanyOneUnits = () => {
     useEffect(() => {
         load();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentPage, building, status, bedrooms]);
+    }, [currentPage, company, building, status, bedrooms]);
 
     // fetch meta for dropdowns once
     useEffect(() => {
@@ -84,6 +99,7 @@ const CompanyOneUnits = () => {
             try {
                 const res = await companyOneUnitsAPI.getMeta();
                 const meta = res.data.data || {};
+                if (meta.companies) setCompanyOptions([{ label: "All Companies", value: "all" }, ...meta.companies.map((c: string) => ({ label: c, value: c }))]);
                 if (meta.buildings) setBuildingOptions([{ label: "All Buildings", value: "all" }, ...meta.buildings.map((b: string) => ({ label: `Building ${b}`, value: b }))]);
                 if (meta.statuses) setStatusOptions([{ label: "All Statuses", value: "all" }, ...meta.statuses.map((s: string) => ({ label: s.charAt(0).toUpperCase() + s.slice(1), value: s }))]);
                 if (meta.bedrooms) setBedroomsOptions([{ label: "Any Bedrooms", value: "all" }, ...meta.bedrooms.map((n: number) => ({ label: String(n), value: n }))]);
@@ -92,6 +108,7 @@ const CompanyOneUnits = () => {
     }, []);
 
     const resetFilters = () => {
+        setCompany("all");
         setBuilding("all");
         setStatus("all");
         setBedrooms("all");
@@ -131,6 +148,11 @@ const CompanyOneUnits = () => {
                 ? 'bg-foreground text-background'
                 : 'bg-yellow-100 text-yellow-800 border border-yellow-200';
 
+    const companyBadgeClass = (company: string) =>
+        company === 'Sakaya'
+            ? 'bg-blue-100 text-blue-800 border border-blue-200'
+            : 'bg-purple-100 text-purple-800 border border-purple-200';
+
     return (
         <section className="container mx-auto px-4 py-8 min-h-screen">
             <div className="flex items-end justify-between gap-4 flex-wrap mb-6">
@@ -141,7 +163,11 @@ const CompanyOneUnits = () => {
                 <button onClick={resetFilters} className="px-4 py-2 rounded-md bg-muted hover:bg-muted/80 text-sm">Reset Filters</button>
             </div>
 
-            <div className="bg-card border rounded-xl p-4 md:p-6 mb-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-card border rounded-xl p-4 md:p-6 mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Company</label>
+                    <Dropdown value={company} onChange={(e) => { setCompany(e.value); setCurrentPage(1); }} options={companyOptions} className="w-full border border-input bg-muted rounded-lg" optionLabel="label" />
+                </div>
                 <div className="space-y-2">
                     <label className="text-sm font-medium">Building</label>
                     <Dropdown value={building} onChange={(e) => { setBuilding(e.value); setCurrentPage(1); }} options={buildingOptions} className="w-full border border-input bg-muted rounded-lg" optionLabel="label" />
@@ -168,49 +194,106 @@ const CompanyOneUnits = () => {
                 <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                         {units.map((u) => (
-                            <div key={u._id} className="rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                                <div className="p-5 space-y-4">
+                            <div key={u._id} className="rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
+                                <div className="p-5 space-y-4 flex-grow">
                                     <div className="flex items-start justify-between">
                                         <div>
-                                            <h3 className="font-semibold text-xl tracking-tight">{u.unit}</h3>
-                                            <p className="text-sm text-muted-foreground">Building {u.building}</p>
+                                            {u.company === "Sakaya" ? (
+                                                <>
+                                                    <h3 className="font-semibold text-xl tracking-tight">{u.unit}</h3>
+                                                    <p className="text-sm text-muted-foreground">Building {u.building}</p>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <h3 className="font-semibold text-xl tracking-tight">Unit {u.unitNumber}</h3>
+                                                    <p className="text-sm text-muted-foreground">Tower {u.towerNumber}</p>
+                                                </>
+                                            )}
                                         </div>
-                                        <span className={`text-xs px-2 py-1 rounded-full border ${badgeClass(u.status)}`}>
-                                            {u.status}
-                                        </span>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                        <div className="rounded-lg border bg-background p-3">
-                                            <p className="text-muted-foreground">Area</p>
-                                            <p className="font-medium">{u.area} m²</p>
-                                        </div>
-                                        <div className="rounded-lg border bg-background p-3">
-                                            <p className="text-muted-foreground">Bedrooms</p>
-                                            <p className="font-medium">{u.bedrooms}</p>
-                                        </div>
-                                        <div className="rounded-lg border bg-background p-3">
-                                            <p className="text-muted-foreground">Price</p>
-                                            <p className="font-medium">{u.price.toLocaleString()}</p>
-                                        </div>
-                                        <div className="rounded-lg border bg-background p-3">
-                                            <p className="text-muted-foreground">Orientation</p>
-                                            <p className="font-medium">{u.orientation}</p>
-                                        </div>
-                                        <div className="rounded-lg border bg-background p-3 col-span-2">
-                                            <p className="text-muted-foreground">View</p>
-                                            <p className="font-medium break-words">{u.view}</p>
+                                        <div className="flex flex-wrap gap-2 items-start justify-end">
+                                            <span className={`text-xs px-2 py-1 rounded-full border font-medium ${companyBadgeClass(u.company)}`}>
+                                                {u.company}
+                                            </span>
+                                            <span className={`text-xs px-2 py-1 rounded-full border ${badgeClass(u.status)}`}>
+                                                {u.status}
+                                            </span>
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-end">
-                                        <button
-                                            disabled={u.status !== 'available' || !user}
-                                            onClick={() => openBooking(u)}
-                                            className={`px-4 py-2 rounded-md text-background ${u.status !== 'available' || !user ? 'bg-muted cursor-not-allowed' : 'bg-foreground hover:bg-foreground/90'}`}
-                                        >
-                                            Book
-                                        </button>
-                                    </div>
+                                    {u.company === "Sakaya" ? (
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <div className="rounded-lg border bg-background p-3">
+                                                <p className="text-muted-foreground">Area</p>
+                                                <p className="font-medium">{u.area} m²</p>
+                                            </div>
+                                            <div className="rounded-lg border bg-background p-3">
+                                                <p className="text-muted-foreground">Bedrooms</p>
+                                                <p className="font-medium">{u.bedrooms}</p>
+                                            </div>
+                                            <div className="rounded-lg border bg-background p-3">
+                                                <p className="text-muted-foreground">Price</p>
+                                                <p className="font-medium">{u.price?.toLocaleString()}</p>
+                                            </div>
+                                            <div className="rounded-lg border bg-background p-3">
+                                                <p className="text-muted-foreground">Orientation</p>
+                                                <p className="font-medium">{u.orientation}</p>
+                                            </div>
+                                            <div className="rounded-lg border bg-background p-3 col-span-2">
+                                                <p className="text-muted-foreground">View</p>
+                                                <p className="font-medium break-words">{u.view}</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <div className="rounded-lg border bg-background p-3">
+                                                <p className="text-muted-foreground">Model</p>
+                                                <p className="font-medium">{u.modelName}</p>
+                                            </div>
+                                            <div className="rounded-lg border bg-background p-3">
+                                                <p className="text-muted-foreground">Floor</p>
+                                                <p className="font-medium">{u.floorNumber}</p>
+                                            </div>
+                                            <div className="rounded-lg border bg-background p-3">
+                                                <p className="text-muted-foreground">Total Area</p>
+                                                <p className="font-medium">{u.totalArea} m²</p>
+                                            </div>
+                                            <div className="rounded-lg border bg-background p-3">
+                                                <p className="text-muted-foreground">Net Area</p>
+                                                <p className="font-medium">{u.netArea} m²</p>
+                                            </div>
+                                            <div className="rounded-lg border bg-background p-3">
+                                                <p className="text-muted-foreground">Balcony</p>
+                                                <p className="font-medium">{u.balcony} m²</p>
+                                            </div>
+                                            <div className="rounded-lg border bg-background p-3">
+                                                <p className="text-muted-foreground">Building</p>
+                                                <p className="font-medium">{u.buildingNumber}</p>
+                                            </div>
+                                            <div className="rounded-lg border bg-background p-3">
+                                                <p className="text-muted-foreground">Price</p>
+                                                <p className="font-medium">{u.totalPrice?.toLocaleString()}</p>
+                                            </div>
+                                            <div className="rounded-lg border bg-background p-3">
+                                                <p className="text-muted-foreground">Orientation</p>
+                                                <p className="font-medium">{u.orientation}</p>
+                                            </div>
+                                            <div className="rounded-lg border bg-background p-3 col-span-2">
+                                                <p className="text-muted-foreground">View</p>
+                                                <p className="font-medium break-words">{u.view}</p>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Button at the bottom */}
+                                <div className="p-5 pt-0 mt-auto">
+                                    <button
+                                        disabled={u.status !== 'available' || !user}
+                                        onClick={() => openBooking(u)}
+                                        className={`w-full px-4 py-2.5 rounded-md font-medium text-background transition-colors ${u.status !== 'available' || !user ? 'bg-muted cursor-not-allowed' : 'bg-foreground hover:bg-foreground/90'}`}
+                                    >
+                                        Book Now
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -226,7 +309,9 @@ const CompanyOneUnits = () => {
             <Dialog open={bookingOpen} onOpenChange={setBookingOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Book Unit {selectedUnit?.unit}</DialogTitle>
+                        <DialogTitle>
+                            Book {selectedUnit?.company === "Sakaya" ? `Unit ${selectedUnit?.unit}` : `Unit ${selectedUnit?.unitNumber}`}
+                        </DialogTitle>
                     </DialogHeader>
                     <div className="grid gap-3">
                         <input

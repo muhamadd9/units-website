@@ -12,7 +12,7 @@ const CompanyTwoUnitsAdmin = () => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalItems, setTotalItems] = useState(0);
-  const [filters, setFilters] = useState({ building: "all", status: "all", floor: "all" });
+  const [filters, setFilters] = useState({ company: "all", status: "all", blockNumber: "all" });
   const [showFilters, setShowFilters] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingUnit, setEditingUnit] = useState<any>(null);
@@ -21,19 +21,20 @@ const CompanyTwoUnitsAdmin = () => {
   const itemsPerPage = 10;
 
   // Dynamic dropdown options from backend meta
-  const [buildingOptions, setBuildingOptions] = useState<{ label: string; value: string }[]>([{ label: "All Buildings", value: "all" }]);
+  const [companyOptions, setCompanyOptions] = useState<{ label: string; value: string }[]>([{ label: "All Companies", value: "all" }]);
   const [statusOptions, setStatusOptions] = useState<{ label: string; value: string }[]>([{ label: "All Statuses", value: "all" }]);
-  const [floorOptions, setFloorOptions] = useState<{ label: string; value: string }[]>([{ label: "All Floors", value: "all" }]);
+  const [blockNumberOptions, setBlockNumberOptions] = useState<{ label: string; value: string }[]>([{ label: "All Blocks", value: "all" }]);
 
-  const { register, handleSubmit, control, reset, setValue } = useForm();
+  const { register, handleSubmit, control, reset, setValue, watch, formState: { errors, isValid } } = useForm({ mode: "onChange" });
+  const watchCompany = watch("company", "Abyat Views");
 
   const loadUnits = async () => {
     setLoading(true);
     try {
       const params: Record<string, any> = { page: currentPage, limit: itemsPerPage };
-      if (filters.building !== "all") params.building = filters.building;
+      if (filters.company !== "all") params.company = filters.company;
       if (filters.status !== "all") params.status = filters.status;
-      if (filters.floor !== "all") params.floor = Number(filters.floor);
+      if (filters.blockNumber !== "all") params.blockNumber = filters.blockNumber;
 
       const res = await companyTwoUnitsAPI.getAll(params);
       setUnits(res.data.data.units || []);
@@ -55,9 +56,9 @@ const CompanyTwoUnitsAdmin = () => {
       try {
         const res = await companyTwoUnitsAPI.getMeta();
         const meta = res.data.data || {};
-        if (meta.buildings) setBuildingOptions([{ label: "All Buildings", value: "all" }, ...meta.buildings.map((b: string) => ({ label: `Building ${b}`, value: b }))]);
+        if (meta.companies) setCompanyOptions([{ label: "All Companies", value: "all" }, ...meta.companies.map((c: string) => ({ label: c, value: c }))]);
         if (meta.statuses) setStatusOptions([{ label: "All Statuses", value: "all" }, ...meta.statuses.map((s: string) => ({ label: s, value: s }))]);
-        if (meta.floors) setFloorOptions([{ label: "All Floors", value: "all" }, ...meta.floors.map((f: number) => ({ label: String(f), value: String(f) }))]);
+        if (meta.blockNumbers) setBlockNumberOptions([{ label: "All Blocks", value: "all" }, ...meta.blockNumbers.map((b: string) => ({ label: `Block ${b}`, value: b }))]);
       } catch { }
     })();
   }, []);
@@ -79,26 +80,51 @@ const CompanyTwoUnitsAdmin = () => {
 
   const handleEdit = (unit: any) => {
     setEditingUnit(unit);
-    setValue("view", unit.view);
-    setValue("orientation", unit.orientation);
-    setValue("totalPrice", unit.totalPrice);
-    setValue("totalArea", unit.totalArea);
-    setValue("balcony", unit.balcony);
-    setValue("netArea", unit.netArea);
-    setValue("modelCode", unit.modelCode);
-    setValue("unit", unit.unit);
-    setValue("building", unit.building);
-    setValue("floor", unit.floor);
+    setValue("company", unit.company);
+    setValue("blockNumber", unit.blockNumber);
+    setValue("landNumber", unit.landNumber);
+    setValue("area", unit.area);
+    setValue("pricePerSquareMeter", unit.pricePerSquareMeter);
+    setValue("usage", unit.usage);
     setValue("status", unit.status);
+
+    if (unit.company === "Abyat Views") {
+      setValue("totalValue", unit.totalValue);
+    } else if (unit.company === "Dhahran Hills") {
+      setValue("landValue", unit.landValue);
+    } else if (unit.company === "The Node") {
+      setValue("blockArea", unit.blockArea);
+      setValue("landValue", unit.landValue);
+    }
     setShowForm(true);
   };
 
   const onSubmit = async (data: any) => {
     try {
+      // Clean payload based on company type
+      const cleanedData: any = {
+        company: data.company,
+        blockNumber: data.blockNumber,
+        landNumber: data.landNumber,
+        area: Number(data.area),
+        pricePerSquareMeter: Number(data.pricePerSquareMeter),
+        usage: data.usage,
+        status: data.status || "available",
+      };
+
+      if (data.company === "Abyat Views") {
+        cleanedData.totalValue = Number(data.totalValue);
+      } else if (data.company === "Dhahran Hills") {
+        cleanedData.landValue = Number(data.landValue);
+      } else if (data.company === "The Node") {
+        cleanedData.blockArea = Number(data.blockArea);
+        cleanedData.landValue = Number(data.landValue);
+      }
+
       if (editingUnit) {
-        await companyTwoUnitsAPI.update(editingUnit._id, data);
+        await companyTwoUnitsAPI.update(editingUnit._id, cleanedData);
       } else {
-        await companyTwoUnitsAPI.create(data);
+        await companyTwoUnitsAPI.create(cleanedData);
       }
       reset();
       setEditingUnit(null);
@@ -110,7 +136,7 @@ const CompanyTwoUnitsAdmin = () => {
   };
 
   const resetFilters = () => {
-    setFilters({ building: "all", status: "all", floor: "all" });
+    setFilters({ company: "all", status: "all", blockNumber: "all" });
     setCurrentPage(1);
   };
 
@@ -155,11 +181,11 @@ const CompanyTwoUnitsAdmin = () => {
         <div className="bg-card p-5 rounded-xl shadow-sm border border-border mb-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Building</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Company</label>
               <Dropdown
-                value={filters.building}
-                onChange={(e) => setFilters({ ...filters, building: e.value })}
-                options={buildingOptions}
+                value={filters.company}
+                onChange={(e) => { setFilters({ ...filters, company: e.value }); setCurrentPage(1); }}
+                options={companyOptions}
                 className={dropdownStyle}
                 optionLabel="label"
               />
@@ -168,18 +194,18 @@ const CompanyTwoUnitsAdmin = () => {
               <label className="block text-sm font-medium text-foreground mb-2">Status</label>
               <Dropdown
                 value={filters.status}
-                onChange={(e) => setFilters({ ...filters, status: e.value })}
+                onChange={(e) => { setFilters({ ...filters, status: e.value }); setCurrentPage(1); }}
                 options={statusOptions}
                 className={dropdownStyle}
                 optionLabel="label"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Floor</label>
+              <label className="block text-sm font-medium text-foreground mb-2">Block Number</label>
               <Dropdown
-                value={filters.floor}
-                onChange={(e) => setFilters({ ...filters, floor: e.value })}
-                options={floorOptions}
+                value={filters.blockNumber}
+                onChange={(e) => { setFilters({ ...filters, blockNumber: e.value }); setCurrentPage(1); }}
+                options={blockNumberOptions}
                 className={dropdownStyle}
                 optionLabel="label"
               />
@@ -197,68 +223,164 @@ const CompanyTwoUnitsAdmin = () => {
         <div className="bg-card p-6 rounded-xl shadow-sm border border-border mb-8">
           <h2 className="text-xl font-semibold mb-4">{editingUnit ? "Edit Unit" : "Add New Unit"}</h2>
           <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">View *</label>
-              <input {...register("view", { required: true })} className="w-full p-3 border border-input rounded-lg bg-background text-foreground" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Orientation *</label>
-              <input {...register("orientation", { required: true })} className="w-full p-3 border border-input rounded-lg bg-background text-foreground" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Total Price *</label>
-              <input type="number" {...register("totalPrice", { required: true, min: 0 })} className="w-full p-3 border border-input rounded-lg bg-background text-foreground" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Total Area *</label>
-              <input type="number" {...register("totalArea", { required: true, min: 0 })} className="w-full p-3 border border-input rounded-lg bg-background text-foreground" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Balcony *</label>
-              <input type="number" {...register("balcony", { required: true, min: 0 })} className="w-full p-3 border border-input rounded-lg bg-background text-foreground" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Net Area *</label>
-              <input type="number" {...register("netArea", { required: true, min: 0 })} className="w-full p-3 border border-input rounded-lg bg-background text-foreground" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Model Code *</label>
-              <input {...register("modelCode", { required: true })} className="w-full p-3 border border-input rounded-lg bg-background text-foreground" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Unit *</label>
-              <input {...register("unit", { required: true })} className="w-full p-3 border border-input rounded-lg bg-background text-foreground" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Building *</label>
+            {/* Company Selection */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-foreground mb-2">Company *</label>
               <Controller
-                name="building"
+                name="company"
                 control={control}
-                rules={{ required: true }}
+                rules={{ required: "Company is required" }}
+                defaultValue="Abyat Views"
                 render={({ field }) => (
                   <Dropdown
                     {...field}
-                    options={
-                      Array.from({ length: 26 }, (_, i) => String.fromCharCode(65 + i)).map((b) => ({
-                        label: b,
-                        value: b,
-                      }))
-                    }
-                    className="w-full border border-input bg-muted rounded-lg"
+                    options={[
+                      { label: "Abyat Views", value: "Abyat Views" },
+                      { label: "Dhahran Hills", value: "Dhahran Hills" },
+                      { label: "The Node", value: "The Node" },
+                    ]}
+                    className="w-full"
                     optionLabel="label"
                   />
                 )}
               />
+              {errors.company && <p className="text-red-500 text-xs mt-1">{errors.company.message as string}</p>}
+            </div>
+
+            {/* Common Fields for all companies */}
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Block Number *</label>
+              <input
+                {...register("blockNumber", {
+                  required: "Block Number is required",
+                  minLength: { value: 1, message: "Block Number must be at least 1 character" }
+                })}
+                className={`w-full p-3 border rounded-lg bg-background text-foreground ${errors.blockNumber ? 'border-red-500' : 'border-input'}`}
+              />
+              {errors.blockNumber && <p className="text-red-500 text-xs mt-1">{errors.blockNumber.message as string}</p>}
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-2">Floor *</label>
-              <input type="number" {...register("floor", { required: true, min: 0 })} className="w-full p-3 border border-input rounded-lg bg-background text-foreground" />
+              <label className="block text-sm font-medium text-foreground mb-2">Land Number *</label>
+              <input
+                {...register("landNumber", {
+                  required: "Land Number is required",
+                  minLength: { value: 1, message: "Land Number must be at least 1 character" }
+                })}
+                className={`w-full p-3 border rounded-lg bg-background text-foreground ${errors.landNumber ? 'border-red-500' : 'border-input'}`}
+              />
+              {errors.landNumber && <p className="text-red-500 text-xs mt-1">{errors.landNumber.message as string}</p>}
             </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Area *</label>
+              <input
+                type="number"
+                step="0.01"
+                {...register("area", {
+                  required: "Area is required",
+                  min: { value: 0, message: "Area must be at least 0" }
+                })}
+                className={`w-full p-3 border rounded-lg bg-background text-foreground ${errors.area ? 'border-red-500' : 'border-input'}`}
+              />
+              {errors.area && <p className="text-red-500 text-xs mt-1">{errors.area.message as string}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Price per Square Meter *</label>
+              <input
+                type="number"
+                step="0.01"
+                {...register("pricePerSquareMeter", {
+                  required: "Price per Square Meter is required",
+                  min: { value: 0, message: "Price must be at least 0" }
+                })}
+                className={`w-full p-3 border rounded-lg bg-background text-foreground ${errors.pricePerSquareMeter ? 'border-red-500' : 'border-input'}`}
+              />
+              {errors.pricePerSquareMeter && <p className="text-red-500 text-xs mt-1">{errors.pricePerSquareMeter.message as string}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-2">Usage *</label>
+              <input
+                {...register("usage", {
+                  required: "Usage is required",
+                  minLength: { value: 1, message: "Usage must be at least 1 character" }
+                })}
+                className={`w-full p-3 border rounded-lg bg-background text-foreground ${errors.usage ? 'border-red-500' : 'border-input'}`}
+              />
+              {errors.usage && <p className="text-red-500 text-xs mt-1">{errors.usage.message as string}</p>}
+            </div>
+
+            {/* Abyat Views specific */}
+            {watchCompany === "Abyat Views" && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Total Value *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  {...register("totalValue", {
+                    required: watchCompany === "Abyat Views" ? "Total Value is required" : false,
+                    min: { value: 0, message: "Total Value must be at least 0" }
+                  })}
+                  className={`w-full p-3 border rounded-lg bg-background text-foreground ${errors.totalValue ? 'border-red-500' : 'border-input'}`}
+                />
+                {errors.totalValue && <p className="text-red-500 text-xs mt-1">{errors.totalValue.message as string}</p>}
+              </div>
+            )}
+
+            {/* Dhahran Hills specific */}
+            {watchCompany === "Dhahran Hills" && (
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">Land Value *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  {...register("landValue", {
+                    required: watchCompany === "Dhahran Hills" ? "Land Value is required" : false,
+                    min: { value: 0, message: "Land Value must be at least 0" }
+                  })}
+                  className={`w-full p-3 border rounded-lg bg-background text-foreground ${errors.landValue ? 'border-red-500' : 'border-input'}`}
+                />
+                {errors.landValue && <p className="text-red-500 text-xs mt-1">{errors.landValue.message as string}</p>}
+              </div>
+            )}
+
+            {/* The Node specific */}
+            {watchCompany === "The Node" && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Block Area *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register("blockArea", {
+                      required: watchCompany === "The Node" ? "Block Area is required" : false,
+                      min: { value: 0, message: "Block Area must be at least 0" }
+                    })}
+                    className={`w-full p-3 border rounded-lg bg-background text-foreground ${errors.blockArea ? 'border-red-500' : 'border-input'}`}
+                  />
+                  {errors.blockArea && <p className="text-red-500 text-xs mt-1">{errors.blockArea.message as string}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Land Value *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register("landValue", {
+                      required: watchCompany === "The Node" ? "Land Value is required" : false,
+                      min: { value: 0, message: "Land Value must be at least 0" }
+                    })}
+                    className={`w-full p-3 border rounded-lg bg-background text-foreground ${errors.landValue ? 'border-red-500' : 'border-input'}`}
+                  />
+                  {errors.landValue && <p className="text-red-500 text-xs mt-1">{errors.landValue.message as string}</p>}
+                </div>
+              </>
+            )}
+
+            {/* Status - Common */}
             <div>
               <label className="block text-sm font-medium text-foreground mb-2">Status</label>
               <Controller
                 name="status"
                 control={control}
+                defaultValue="available"
                 render={({ field }) => (
                   <Dropdown
                     {...field}
@@ -275,11 +397,16 @@ const CompanyTwoUnitsAdmin = () => {
                 )}
               />
             </div>
+
             <div className="md:col-span-2 flex justify-end gap-3">
               <button type="button" onClick={() => { setShowForm(false); reset(); setEditingUnit(null); }} className="px-6 py-2 border border-input rounded-lg hover:bg-muted">
                 Cancel
               </button>
-              <button type="submit" className="px-6 py-2 bg-foreground text-background rounded-lg hover:bg-foreground/90">
+              <button
+                type="submit"
+                disabled={!isValid || Object.keys(errors).length > 0}
+                className={`px-6 py-2 rounded-lg transition-colors ${isValid && Object.keys(errors).length === 0 ? 'bg-foreground text-background hover:bg-foreground/90' : 'bg-muted text-muted-foreground cursor-not-allowed opacity-50'}`}
+              >
                 {editingUnit ? "Update" : "Create"}
               </button>
             </div>
@@ -298,11 +425,10 @@ const CompanyTwoUnitsAdmin = () => {
               <table className="min-w-full divide-y divide-border">
                 <thead className="bg-muted">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Unit</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Building</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Floor</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Total Price</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Total Area</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Company</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Block/Land</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Details</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Value</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
                   </tr>
@@ -310,11 +436,26 @@ const CompanyTwoUnitsAdmin = () => {
                 <tbody className="bg-card divide-y divide-border">
                   {units.map((unit) => (
                     <tr key={unit._id} className="hover:bg-muted/50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{unit.unit}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{unit.building}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{unit.floor}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{unit.totalPrice?.toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">{unit.totalArea}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground font-medium">{unit.company}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
+                        <div>
+                          <div className="font-medium">Block {unit.blockNumber}</div>
+                          <div className="text-xs text-muted-foreground">Land {unit.landNumber}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-foreground">
+                        <div className="space-y-1">
+                          <div>{unit.area}m² • {unit.usage}</div>
+                          <div className="text-xs text-muted-foreground">{unit.pricePerSquareMeter?.toLocaleString()}/m²</div>
+                          {unit.company === "The Node" && unit.blockArea && (
+                            <div className="text-xs text-muted-foreground">Block Area: {unit.blockArea}m²</div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
+                        {unit.company === "Abyat Views" && unit.totalValue?.toLocaleString()}
+                        {(unit.company === "Dhahran Hills" || unit.company === "The Node") && unit.landValue?.toLocaleString()}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <span className={`px-2 py-1 rounded-full text-xs ${unit.status === "available" ? "bg-muted text-foreground border border-border" :

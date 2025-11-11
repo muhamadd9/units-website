@@ -4,6 +4,7 @@ import { FiFilter, FiX, FiEye } from "react-icons/fi";
 import { Dropdown } from "primereact/dropdown";
 import PaginationClassic from "@/components/PaginationClassic";
 import { useNavigate } from "react-router-dom";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 const BookingsAdmin = () => {
     const [bookings, setBookings] = useState<any[]>([]);
@@ -13,6 +14,8 @@ const BookingsAdmin = () => {
     const [totalItems, setTotalItems] = useState(0);
     const [filters, setFilters] = useState({ unitModel: "all", paymentMethod: "all", status: "all" });
     const [showFilters, setShowFilters] = useState(false);
+    const [selectedBooking, setSelectedBooking] = useState<any>(null);
+    const [detailsOpen, setDetailsOpen] = useState(false);
     const itemsPerPage = 10;
     const navigate = useNavigate();
 
@@ -216,12 +219,13 @@ const BookingsAdmin = () => {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Created By</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Created At</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Unit Details</th>
                             </tr>
                         </thead>
                         <tbody className="bg-card divide-y divide-border">
                             {bookings.length === 0 ? (
                                 <tr>
-                                    <td colSpan={9} className="px-6 py-4 text-center text-muted-foreground">
+                                    <td colSpan={10} className="px-6 py-4 text-center text-muted-foreground">
                                         No bookings found.
                                     </td>
                                 </tr>
@@ -263,6 +267,15 @@ const BookingsAdmin = () => {
                                         <td className="px-6 py-4 whitespace-nowrap">
                                             <div className="text-sm text-foreground">{new Date(booking.createdAt).toLocaleString()}</div>
                                         </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                            <button
+                                                onClick={() => { setSelectedBooking(booking); setDetailsOpen(true); }}
+                                                className="p-1.5 rounded-md border border-border hover:bg-muted"
+                                                aria-label="View unit details"
+                                            >
+                                                <FiEye className="w-4 h-4" />
+                                            </button>
+                                        </td>
                                     </tr>
                                 ))
                             )}
@@ -281,6 +294,205 @@ const BookingsAdmin = () => {
                     />
                 </div>
             )}
+
+            {/* Unit Details Modal */}
+            <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+                <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Booking & Unit Details</DialogTitle>
+                    </DialogHeader>
+                    {selectedBooking && (
+                        <div className="space-y-6">
+                            {/* Client Information */}
+                            <div>
+                                <h3 className="text-lg font-semibold mb-3">Client Information</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="rounded-lg border p-3">
+                                        <p className="text-xs text-muted-foreground">Client Name</p>
+                                        <p className="text-sm font-medium">{selectedBooking.clientName || '-'}</p>
+                                    </div>
+                                    <div className="rounded-lg border p-3">
+                                        <p className="text-xs text-muted-foreground">Email</p>
+                                        <p className="text-sm font-medium">{selectedBooking.email || '-'}</p>
+                                    </div>
+                                    <div className="rounded-lg border p-3">
+                                        <p className="text-xs text-muted-foreground">Phone</p>
+                                        <p className="text-sm font-medium">{selectedBooking.phone || '-'}</p>
+                                    </div>
+                                    <div className="rounded-lg border p-3">
+                                        <p className="text-xs text-muted-foreground">Payment Method</p>
+                                        <p className="text-sm font-medium capitalize">{selectedBooking.paymentMethod || '-'}</p>
+                                    </div>
+                                    <div className="rounded-lg border p-3">
+                                        <p className="text-xs text-muted-foreground">Status</p>
+                                        <p className="text-sm font-medium capitalize">{selectedBooking.status || '-'}</p>
+                                    </div>
+                                    <div className="rounded-lg border p-3">
+                                        <p className="text-xs text-muted-foreground">Created By</p>
+                                        <p className="text-sm font-medium">{selectedBooking.createdBy?.fullName || '-'}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Unit Information */}
+                            {selectedBooking.unit && (
+                                <div>
+                                    <h3 className="text-lg font-semibold mb-3">Unit Information</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="rounded-lg border p-3 md:col-span-2">
+                                            <p className="text-xs text-muted-foreground">Development</p>
+                                            <p className="text-sm font-medium">{UNIT_MODEL_LABELS[selectedBooking.unitModel] || selectedBooking.unitModel}</p>
+                                        </div>
+                                        <div className="rounded-lg border p-3 md:col-span-2">
+                                            <p className="text-xs text-muted-foreground">Company</p>
+                                            <p className="text-sm font-medium">{selectedBooking.unit.company || '-'}</p>
+                                        </div>
+
+                                        {/* CompanyOneUnit - Sakaya */}
+                                        {selectedBooking.unitModel === 'CompanyOneUnit' && selectedBooking.unit.company === 'Sakaya' && (
+                                            <>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Unit</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.unit || '-'}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Building</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.building || '-'}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Area</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.area} m²</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Bedrooms</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.bedrooms}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Price</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.price?.toLocaleString()}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Orientation</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.orientation || '-'}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3 md:col-span-2">
+                                                    <p className="text-xs text-muted-foreground">View</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.view || '-'}</p>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* CompanyOneUnit - Upvida */}
+                                        {selectedBooking.unitModel === 'CompanyOneUnit' && selectedBooking.unit.company === 'Upvida' && (
+                                            <>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Unit Number</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.unitNumber || '-'}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Building Number</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.buildingNumber || '-'}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Tower Number</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.towerNumber || '-'}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Floor Number</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.floorNumber || '-'}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Model Name</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.modelName || '-'}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Total Area</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.totalArea} m²</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Net Area</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.netArea} m²</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Balcony</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.balcony} m²</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Total Price</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.totalPrice?.toLocaleString()}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Orientation</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.orientation || '-'}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3 md:col-span-2">
+                                                    <p className="text-xs text-muted-foreground">View</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.view || '-'}</p>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* CompanyTwoUnit - All Companies */}
+                                        {selectedBooking.unitModel === 'CompanyTwoUnit' && (
+                                            <>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Block Number</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.blockNumber || '-'}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Land Number</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.landNumber || '-'}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Area</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.area} m²</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Price per m²</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.pricePerSquareMeter?.toLocaleString()}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Usage</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.usage || '-'}</p>
+                                                </div>
+                                                {selectedBooking.unit.company === 'Abyat Views' && selectedBooking.unit.totalValue !== undefined && (
+                                                    <div className="rounded-lg border p-3">
+                                                        <p className="text-xs text-muted-foreground">Total Value</p>
+                                                        <p className="text-sm font-medium">{selectedBooking.unit.totalValue?.toLocaleString()}</p>
+                                                    </div>
+                                                )}
+                                                {(selectedBooking.unit.company === 'Dhahran Hills' || selectedBooking.unit.company === 'The Node') && selectedBooking.unit.landValue !== undefined && (
+                                                    <div className="rounded-lg border p-3">
+                                                        <p className="text-xs text-muted-foreground">Land Value</p>
+                                                        <p className="text-sm font-medium">{selectedBooking.unit.landValue?.toLocaleString()}</p>
+                                                    </div>
+                                                )}
+                                                {selectedBooking.unit.company === 'The Node' && selectedBooking.unit.blockArea !== undefined && (
+                                                    <div className="rounded-lg border p-3">
+                                                        <p className="text-xs text-muted-foreground">Block Area</p>
+                                                        <p className="text-sm font-medium">{selectedBooking.unit.blockArea} m²</p>
+                                                    </div>
+                                                )}
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">View</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.view || '-'}</p>
+                                                </div>
+                                                <div className="rounded-lg border p-3">
+                                                    <p className="text-xs text-muted-foreground">Orientation</p>
+                                                    <p className="text-sm font-medium">{selectedBooking.unit.orientation || '-'}</p>
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <button onClick={() => setDetailsOpen(false)} className="px-4 py-2 border border-input rounded-lg">Close</button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
